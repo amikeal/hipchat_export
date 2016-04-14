@@ -39,6 +39,14 @@ call every 5 minutes. This script will track how many calls have been made to
 the API, and before it hits 100 will insert a 5 minute pause.
 
 
+Prerequisites 
+--------
+
+`hipchat_export` uses the `requests` package: http://docs.python-requests.org/en/master/.  This is installable with `pip`:
+```
+$ pip install requests
+```
+
 Known Issues
 --------
 
