@@ -14,6 +14,7 @@ Options
 ```
   -v                  Run verbosely
   -h, --help          Show this help file
+  -l, --list          List the active users that will be queried
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
