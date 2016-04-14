@@ -25,6 +25,7 @@ Usage: python hipchat_export.py [options]
 Options:
   -v                  Run verbosely
   -h, --help          Show this help file
+  -l, --list          List the active users that will be queried
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
@@ -77,6 +78,36 @@ def take5():
     print
     log("Script operation resuming...")
     TOTAL_REQUESTS = 0
+
+
+def get_user_list(user_token):
+    # Set HTTP header to use user token for auth
+    headers = {'Authorization': 'Bearer ' + user_token }
+
+    # Return value will be a dictionary
+    user_list = {}
+
+    # Fetch the user list from the API
+    url = "http://api.hipchat.com/v2/user"
+    r = requests.get(url, headers=headers)
+
+    # Iterate through the users and make a dict to return
+    for person in r.json()['items']:
+        user_list[str(person['id'])] = person['name']
+
+    # Return the dict
+    return user_list
+
+
+def display_userlist(user_list):
+    print "\nThe following users are active and will be queried for 1-to-1 messages:\n"
+
+    col_width = max([len(val) for val in user_list.values()]) + 2
+    print "Name".ljust(col_width), "ID"
+    print "-" * col_width + "--------"
+
+    for u_id, name in user_list.items():
+        print name.ljust(col_width), u_id
 
 
 def message_export(user_token, user_id, user_name):
@@ -177,22 +208,9 @@ class Usage(Exception):
 def main(argv=None):
     # initialize variables
     global VERBOSE
+    ACTION = "PROCESS"
     USER_TOKEN = None
-    USER_LIST = {
-        '280290': 'Jason Vaughn',
-        '280287': 'Adam Mikeal',
-        '280291': 'Ben Liles',
-        '341042': 'Benedict Nguyen',
-        '814320': 'Chris De La Rosa',
-        '280292': 'Derek Groh',
-        '280336': 'James Gillette',
-        '280289': 'Jim Rosser',
-        '354286': 'John Phillips',
-        '280301': 'Kevin Glueck',
-        '2249240': 'Laura Melton',
-        '283409': 'Victoria Blessing',
-        '488668': 'Zach Cummings'
-    }
+    USER_LIST = {}
 
     # create dir for binary files
     if not os.path.isdir(FILE_DIR):
@@ -202,7 +220,7 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hu:v", ["help", "user_token="])
+            opts, args = getopt.getopt(argv[1:], "hlu:v", ["help", "list", "user_token="])
         except getopt.error, msg:
             raise Usage(msg)
 
@@ -211,6 +229,8 @@ def main(argv=None):
             if option in ("-h", "--help"):
                 print help_message
                 sys.exit(0)
+            if option in ("-l", "--list"):
+                ACTION = "DISPLAY"
             if option == "-v":
                 VERBOSE = True
             if option in ("-u", "--user_token"):
@@ -219,6 +239,14 @@ def main(argv=None):
         # ensure that the token passed is a valid token length (real check happens later)
         if not USER_TOKEN or not len(USER_TOKEN) == 40:
             raise Usage("You must specify a valid HipChat user token!")
+
+        # Get the list of users
+        USER_LIST = get_user_list(USER_TOKEN)
+
+        # If the action is listing only, display and exit
+        if ACTION == "DISPLAY":
+            display_userlist(USER_LIST)
+            sys.exit(0)
 
         # Iterate through user list and export all 1-to-1 messages to disk
         for user_id, user_name in USER_LIST.items():
