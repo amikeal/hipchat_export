@@ -186,10 +186,11 @@ def main(argv=None):
         '814320': 'Chris De La Rosa',
         '280292': 'Derek Groh',
         '280336': 'James Gillette',
-        '280289': 'James Rosser',
+        '280289': 'Jim Rosser',
         '354286': 'John Phillips',
         '280301': 'Kevin Glueck',
         '2249240': 'Laura Melton',
+        '283409': 'Victoria Blessing',
         '488668': 'Zach Cummings'
     }
 
