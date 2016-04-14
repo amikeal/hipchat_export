@@ -46,6 +46,6 @@ As the description says, this is a **simple** script. There are several caveats 
 should be considered before you use it:
 
 1. I have only tested this on OSX (El Capitan) using the built-in python 2.7. I can't think of any reason why it wouldn't run elsewhere, but I don't know, as _I haven't tested it_. 
-2. Currently, the list of users that the script cycles through looking for 1-to-1 messages to export is hard-coded into a dictionary in the `main()` function. This really should be changed.
+2. Currently, the list of users that the script cycles through looking for 1-to-1 messages to export is ~~hard-coded into a dictionary in the `main()` function. This really should be changed.~~ is pulled from the API, but there is no pagination. If you have more than 100 active users in your account, this will not see them.
 3. If the script halts for any reason, there is no mechanism to resume where it left off. You will need to start over again.
 4. The only logging is to `stdout` -- if you want to save the activity for you records, I suggest you capture your screen (`tee` is useful if you are on bash).
