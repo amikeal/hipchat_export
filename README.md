@@ -17,7 +17,9 @@ Options
   -l, --list          List the active users that will be queried
   -u, --user_token    Your API user token
                         *** Generate this token online at
-                        https://coa.hipchat.com/account/api ***
+                        https://coa.hipchat.com/account/api 
+                        At a minimum, you need 'View Group' and
+                        'View Messages' scopes on the token ***
 ```
 
 Example
