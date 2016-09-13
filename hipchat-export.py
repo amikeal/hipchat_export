@@ -29,6 +29,7 @@ Options:
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
+  -x, --extract_users User ID(s) to extract (comma separated list)
 
 Example:
   hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z
@@ -210,7 +211,9 @@ def main(argv=None):
     global VERBOSE
     ACTION = "PROCESS"
     USER_TOKEN = None
+    IDS_TO_EXTRACT = None
     USER_LIST = {}
+    USER_SUBSET = {}
 
     # create dir for binary files
     if not os.path.isdir(FILE_DIR):
@@ -220,11 +223,12 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlu:v", ["help", "list", "user_token="])
+            opts, args = getopt.getopt(argv[1:], "hlux:v", ["help", "list", "user_token=","extract_users="])
         except getopt.error, msg:
             raise Usage(msg)
 
         # option processing
+        print opts
         for option, value in opts:
             if option in ("-h", "--help"):
                 print help_message
@@ -235,6 +239,8 @@ def main(argv=None):
                 VERBOSE = True
             if option in ("-u", "--user_token"):
                 USER_TOKEN = value
+            if option in ("-x", "--extract_users"):
+                IDS_TO_EXTRACT = value.split(',')
 
         # ensure that the token passed is a valid token length (real check happens later)
         if not USER_TOKEN or not len(USER_TOKEN) == 40:
@@ -243,13 +249,33 @@ def main(argv=None):
         # Get the list of users
         USER_LIST = get_user_list(USER_TOKEN)
 
+        # Validate user IDs and ensure they are present in the user list
+        if IDS_TO_EXTRACT is not None:
+            for user_id in IDS_TO_EXTRACT:
+                try:
+                    int(user_id)
+                except ValueError:
+                    print "Invald user ID: %s." % (user_id)
+                    return 2
+
+                if user_id not in USER_LIST.keys():
+                    print "User ID %s not found in HipChat." % (user_id)
+                    return 2
+                else:
+                    USER_SUBSET[user_id] = USER_LIST[user_id]
+
         # If the action is listing only, display and exit
         if ACTION == "DISPLAY":
             display_userlist(USER_LIST)
             sys.exit(0)
 
         # Iterate through user list and export all 1-to-1 messages to disk
-        for user_id, user_name in USER_LIST.items():
+        if USER_SUBSET is not None:
+            extract = USER_SUBSET.items()
+        else:
+            extract = USER_LIST.items()
+
+        for user_id, user_name in extract:
             log("\nExporting 1-to-1 messages for %s (ID: %s)..." % (user_name, user_id))
             message_export(USER_TOKEN, user_id, user_name)
 
