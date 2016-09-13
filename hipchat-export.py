@@ -91,10 +91,10 @@ def get_user_list(user_token):
     url = "http://api.hipchat.com/v2/user"
     r = requests.get(url, headers=headers)
 
-    # Iterate through the users and make a dict to return
     if 'error' in r.json():
         raise ApiError(r.json().get('error'))
 
+    # Iterate through the users and make a dict to return
     for person in r.json()['items']:
         user_list[str(person['id'])] = person['name']
 
