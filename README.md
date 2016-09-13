@@ -26,9 +26,13 @@ Options
 Examples
 ------
 Extract every 1-to-1 message:
+
 ```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z -v```
+
 Extract only 1-to-1 messages from certain users: 
+
 ```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z --extract_users=123,456,789```
+
 
 After execution, a `hipchat_export` folder will be created in the current
 working directory, and folders will be created for each person it will ask
