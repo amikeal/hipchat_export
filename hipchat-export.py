@@ -91,6 +91,9 @@ def get_user_list(user_token):
     url = "http://api.hipchat.com/v2/user"
     r = requests.get(url, headers=headers)
 
+    if 'error' in r.json():
+        raise ApiError(r.json().get('error'))
+
     # Iterate through the users and make a dict to return
     for person in r.json()['items']:
         user_list[str(person['id'])] = person['name']
@@ -150,6 +153,8 @@ def message_export(user_token, user_id, user_name):
             if r.status_code == 429:
                 # Hit the rate limit! trigger the 5m pause...
                 take5()
+            elif 'error' in r.json():
+                raise ApiError(r.json().get('error'))
             else:
                 r.raise_for_status()
 
@@ -204,6 +209,8 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class ApiError(Exception):
+    pass
 
 def main(argv=None):
     # initialize variables
@@ -241,7 +248,11 @@ def main(argv=None):
             raise Usage("You must specify a valid HipChat user token!")
 
         # Get the list of users
-        USER_LIST = get_user_list(USER_TOKEN)
+        try:
+            USER_LIST = get_user_list(USER_TOKEN)
+        except ApiError as e:
+            print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+            return
 
         # If the action is listing only, display and exit
         if ACTION == "DISPLAY":
@@ -251,7 +262,11 @@ def main(argv=None):
         # Iterate through user list and export all 1-to-1 messages to disk
         for user_id, user_name in USER_LIST.items():
             log("\nExporting 1-to-1 messages for %s (ID: %s)..." % (user_name, user_id))
-            message_export(USER_TOKEN, user_id, user_name)
+            try:
+                message_export(USER_TOKEN, user_id, user_name)
+            except ApiError as e:
+                print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+                return
 
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
