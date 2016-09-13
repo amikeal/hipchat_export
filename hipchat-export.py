@@ -14,7 +14,7 @@ import os
 import getopt
 import json
 from datetime import date, datetime
-from time import sleep
+from time import sleep, time
 
 help_message = '''
 A simple script to export 1-to-1 messages from HipChat using the v2 API
@@ -132,7 +132,7 @@ def message_export(user_token, user_id, user_name):
     global TOTAL_REQUESTS
 
     # Set initial URL with correct user_id
-    url = "http://api.hipchat.com/v2/user/%s/history?date=1460563412&reverse=false" % (user_id)
+    url = "http://api.hipchat.com/v2/user/%s/history?date=%s&reverse=false" % (user_id, int(time()))
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
