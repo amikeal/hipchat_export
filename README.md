@@ -20,11 +20,15 @@ Options
                         https://coa.hipchat.com/account/api 
                         At a minimum, you need 'View Group' and
                         'View Messages' scopes on the token ***
+  -x, --extract_users User ID(s) to extract (comma separated list)
 ```
 
-Example
+Examples
 ------
+Extract every 1-to-1 message:
 ```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z -v```
+Extract only 1-to-1 messages from certain users: 
+```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z --extract_users=123,456,789```
 
 After execution, a `hipchat_export` folder will be created in the current
 working directory, and folders will be created for each person it will ask
@@ -56,6 +60,6 @@ As the description says, this is a **simple** script. There are several caveats 
 should be considered before you use it:
 
 1. I have only tested this on OSX (El Capitan) using the built-in python 2.7. I can't think of any reason why it wouldn't run elsewhere, but I don't know, as _I haven't tested it_. 
-2. Currently, the list of users that the script cycles through looking for 1-to-1 messages to export is ~~hard-coded into a dictionary in the `main()` function. This really should be changed.~~ is pulled from the API, but there is no pagination. If you have more than 100 active users in your account, this will not see them.
+2. Currently, the list of users that the script cycles through looking for 1-to-1 messages to export is pulled from the API, but there is no pagination. If you have more than 100 active users in your account, this will not see them. There is a ```-x``` option that will allow you to specify a set of user_id's to extract (instead of allowing the script to extract from all users it identifies).
 3. If the script halts for any reason, there is no mechanism to resume where it left off. You will need to start over again.
 4. The only logging is to `stdout` -- if you want to save the activity for you records, I suggest you capture your screen (`tee` is useful if you are on bash).
