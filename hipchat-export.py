@@ -153,6 +153,8 @@ def message_export(user_token, user_id, user_name):
             if r.status_code == 429:
                 # Hit the rate limit! trigger the 5m pause...
                 take5()
+            elif 'error' in r.json():
+                raise ApiError(r.json().get('error'))
             else:
                 r.raise_for_status()
 
@@ -260,7 +262,11 @@ def main(argv=None):
         # Iterate through user list and export all 1-to-1 messages to disk
         for user_id, user_name in USER_LIST.items():
             log("\nExporting 1-to-1 messages for %s (ID: %s)..." % (user_name, user_id))
-            message_export(USER_TOKEN, user_id, user_name)
+            try:
+                message_export(USER_TOKEN, user_id, user_name)
+            except ApiError as e:
+                print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+                return
 
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
