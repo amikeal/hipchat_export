@@ -92,6 +92,9 @@ def get_user_list(user_token):
     r = requests.get(url, headers=headers)
 
     # Iterate through the users and make a dict to return
+    if 'error' in r.json():
+        raise ApiError(r.json().get('error'))
+
     for person in r.json()['items']:
         user_list[str(person['id'])] = person['name']
 
@@ -204,6 +207,8 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class ApiError(Exception):
+    pass
 
 def main(argv=None):
     # initialize variables
@@ -241,7 +246,11 @@ def main(argv=None):
             raise Usage("You must specify a valid HipChat user token!")
 
         # Get the list of users
-        USER_LIST = get_user_list(USER_TOKEN)
+        try:
+            USER_LIST = get_user_list(USER_TOKEN)
+        except ApiError as e:
+            print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+            return
 
         # If the action is listing only, display and exit
         if ACTION == "DISPLAY":
