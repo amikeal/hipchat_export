@@ -243,7 +243,6 @@ def main(argv=None):
             raise Usage(msg)
 
         # option processing
-        print opts
         for option, value in opts:
             if option in ("-h", "--help"):
                 print help_message
