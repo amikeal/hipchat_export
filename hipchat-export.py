@@ -14,7 +14,8 @@ import os
 import getopt
 import json
 from datetime import date, datetime
-from time import sleep
+from urlparse import urlparse
+from time import sleep, time
 
 help_message = '''
 A simple script to export 1-to-1 messages from HipChat using the v2 API
@@ -29,9 +30,17 @@ Options:
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
+  -x, --extract_users User ID(s) to extract (comma separated list)
 
-Example:
+Examples:
+
+  extract every 1-to-1 message:
+
   hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z
+
+  extract only 1-to-1 messages with certain users:
+
+  hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z --extract_users=123,456,789
 
 After execution, a 'hipchat_export' folder will be created in the current
 working directory, and folders will be created for each person it will ask
@@ -91,6 +100,9 @@ def get_user_list(user_token):
     url = "http://api.hipchat.com/v2/user"
     r = requests.get(url, headers=headers)
 
+    if 'error' in r.json():
+        raise ApiError(r.json().get('error'))
+
     # Iterate through the users and make a dict to return
     for person in r.json()['items']:
         user_list[str(person['id'])] = person['name']
@@ -132,7 +144,7 @@ def message_export(user_token, user_id, user_name):
     global TOTAL_REQUESTS
 
     # Set initial URL with correct user_id
-    url = "http://api.hipchat.com/v2/user/%s/history?date=1460563412&reverse=false" % (user_id)
+    url = "http://api.hipchat.com/v2/user/%s/history?date=%s&reverse=false" % (user_id, int(time()))
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
@@ -150,6 +162,8 @@ def message_export(user_token, user_id, user_name):
             if r.status_code == 429:
                 # Hit the rate limit! trigger the 5m pause...
                 take5()
+            elif 'error' in r.json():
+                raise ApiError(r.json().get('error'))
             else:
                 r.raise_for_status()
 
@@ -172,7 +186,7 @@ def message_export(user_token, user_id, user_name):
                 TOTAL_REQUESTS += 1
 
                 # extract the unique part of the URI to use as a file name
-                fname = item['file']['url'].split('41817/')[1]
+                fname = '/'.join(urlparse(item['file']['url']).path.split('/')[-3:])
                 fpath = os.path.join(FILE_DIR, fname)
 
                 # ensure full dir for the path exists
@@ -204,13 +218,17 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class ApiError(Exception):
+    pass
 
 def main(argv=None):
     # initialize variables
     global VERBOSE
     ACTION = "PROCESS"
     USER_TOKEN = None
+    IDS_TO_EXTRACT = None
     USER_LIST = {}
+    USER_SUBSET = {}
 
     # create dir for binary files
     if not os.path.isdir(FILE_DIR):
@@ -220,11 +238,12 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlu:v", ["help", "list", "user_token="])
+            opts, args = getopt.getopt(argv[1:], "hlux:v", ["help", "list", "user_token=","extract_users="])
         except getopt.error, msg:
             raise Usage(msg)
 
         # option processing
+        print opts
         for option, value in opts:
             if option in ("-h", "--help"):
                 print help_message
@@ -235,13 +254,34 @@ def main(argv=None):
                 VERBOSE = True
             if option in ("-u", "--user_token"):
                 USER_TOKEN = value
+            if option in ("-x", "--extract_users"):
+                IDS_TO_EXTRACT = value.split(',')
 
         # ensure that the token passed is a valid token length (real check happens later)
         if not USER_TOKEN or not len(USER_TOKEN) == 40:
             raise Usage("You must specify a valid HipChat user token!")
 
         # Get the list of users
-        USER_LIST = get_user_list(USER_TOKEN)
+        try:
+            USER_LIST = get_user_list(USER_TOKEN)
+        except ApiError as e:
+            print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+            return
+
+        # Validate user IDs and ensure they are present in the user list
+        if IDS_TO_EXTRACT is not None:
+            for user_id in IDS_TO_EXTRACT:
+                try:
+                    int(user_id)
+                except ValueError:
+                    print "Invald user ID: %s." % (user_id)
+                    return 2
+
+                if user_id not in USER_LIST.keys():
+                    print "User ID %s not found in HipChat." % (user_id)
+                    return 2
+                else:
+                    USER_SUBSET[user_id] = USER_LIST[user_id]
 
         # If the action is listing only, display and exit
         if ACTION == "DISPLAY":
@@ -249,9 +289,18 @@ def main(argv=None):
             sys.exit(0)
 
         # Iterate through user list and export all 1-to-1 messages to disk
-        for user_id, user_name in USER_LIST.items():
+        if USER_SUBSET is not None:
+            extract = USER_SUBSET.items()
+        else:
+            extract = USER_LIST.items()
+
+        for user_id, user_name in extract:
             log("\nExporting 1-to-1 messages for %s (ID: %s)..." % (user_name, user_id))
-            message_export(USER_TOKEN, user_id, user_name)
+            try:
+                message_export(USER_TOKEN, user_id, user_name)
+            except ApiError as e:
+                print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+                return
 
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
