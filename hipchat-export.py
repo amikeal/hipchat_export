@@ -14,7 +14,7 @@ import os
 import getopt
 import json
 from datetime import date, datetime
-from time import sleep
+from time import sleep, time
 
 help_message = '''
 A simple script to export 1-to-1 messages from HipChat using the v2 API
@@ -92,6 +92,9 @@ def get_user_list(user_token):
     url = "http://api.hipchat.com/v2/user"
     r = requests.get(url, headers=headers)
 
+    if 'error' in r.json():
+        raise ApiError(r.json().get('error'))
+
     # Iterate through the users and make a dict to return
     for person in r.json()['items']:
         user_list[str(person['id'])] = person['name']
@@ -133,7 +136,7 @@ def message_export(user_token, user_id, user_name):
     global TOTAL_REQUESTS
 
     # Set initial URL with correct user_id
-    url = "http://api.hipchat.com/v2/user/%s/history?date=1460563412&reverse=false" % (user_id)
+    url = "http://api.hipchat.com/v2/user/%s/history?date=%s&reverse=false" % (user_id, int(time()))
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
@@ -151,6 +154,8 @@ def message_export(user_token, user_id, user_name):
             if r.status_code == 429:
                 # Hit the rate limit! trigger the 5m pause...
                 take5()
+            elif 'error' in r.json():
+                raise ApiError(r.json().get('error'))
             else:
                 r.raise_for_status()
 
@@ -205,6 +210,8 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+class ApiError(Exception):
+    pass
 
 def main(argv=None):
     # initialize variables
@@ -247,7 +254,11 @@ def main(argv=None):
             raise Usage("You must specify a valid HipChat user token!")
 
         # Get the list of users
-        USER_LIST = get_user_list(USER_TOKEN)
+        try:
+            USER_LIST = get_user_list(USER_TOKEN)
+        except ApiError as e:
+            print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+            return
 
         # Validate user IDs and ensure they are present in the user list
         if IDS_TO_EXTRACT is not None:
@@ -277,7 +288,11 @@ def main(argv=None):
 
         for user_id, user_name in extract:
             log("\nExporting 1-to-1 messages for %s (ID: %s)..." % (user_name, user_id))
-            message_export(USER_TOKEN, user_id, user_name)
+            try:
+                message_export(USER_TOKEN, user_id, user_name)
+            except ApiError as e:
+                print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+                return
 
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
