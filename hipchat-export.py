@@ -14,6 +14,7 @@ import os
 import getopt
 import json
 from datetime import date, datetime
+from urlparse import urlparse
 from time import sleep, time
 
 help_message = '''
@@ -178,7 +179,7 @@ def message_export(user_token, user_id, user_name):
                 TOTAL_REQUESTS += 1
 
                 # extract the unique part of the URI to use as a file name
-                fname = item['file']['url'].split('41817/')[1]
+                fname = '/'.join(urlparse(item['file']['url']).path.split('/')[-3:])
                 fpath = os.path.join(FILE_DIR, fname)
 
                 # ensure full dir for the path exists
