@@ -278,7 +278,8 @@ def main(argv=None):
 
                 if user_id not in USER_LIST.keys():
                     print "User ID %s not found in HipChat." % (user_id)
-                    return 2
+                    print "Using id rather than name for directory"
+                    USER_SUBSET[user_id] = user_id
                 else:
                     USER_SUBSET[user_id] = USER_LIST[user_id]
 
