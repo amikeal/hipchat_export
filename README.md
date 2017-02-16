@@ -15,6 +15,7 @@ Options
   -v                  Run verbosely
   -h, --help          Show this help file
   -l, --list          List the active users that will be queried
+  -m, --messages      Messages only, without file uploads
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api 
@@ -29,9 +30,9 @@ Extract every 1-to-1 message:
 
 ```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z -v```
 
-Extract only 1-to-1 messages from certain users: 
+Extract only 1-to-1 messages from certain users and EXCLUDE files (messages only): 
 
-```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z --extract_users=123,456,789```
+```hipchat_export.py --user_token jKHxU8x6Jj25rTYaMuf6yTe7YpQ6TV413EUkBd0Z --messages --extract_users=123,456,789```
 
 
 After execution, a `hipchat_export` folder will be created in the current
