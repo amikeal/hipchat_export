@@ -27,6 +27,7 @@ Options:
   -v                  Run verbosely
   -h, --help          Show this help file
   -l, --list          List the active users that will be queried
+  -m, --messages      Messages only, without file uploads
   -u, --user_token    Your API user token
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
@@ -59,8 +60,12 @@ the API, and before it hits 100 will insert a 5 minute pause.
 
 # Flag for verbosity
 VERBOSE = False
+# Flag for file uploads
+GET_FILE_UPLOADS = True
 EXPORT_DIR = os.path.join(os.getcwd(), 'hipchat_export')
 FILE_DIR = os.path.join(EXPORT_DIR, 'uploads')
+HIPCHAT_API_URL = "http://api.hipchat.com/v2"
+REQUESTS_RATE_LIMIT = 100
 TOTAL_REQUESTS = 0
 
 def log(msg):
@@ -88,8 +93,19 @@ def take5():
     log("Script operation resuming...")
     TOTAL_REQUESTS = 0
 
+def check_requests_vs_limit():
+    global REQUESTS_RATE_LIMIT
+    global TOTAL_REQUESTS
+    # Check TOTAL_REQUESTS vs the limit
+    if TOTAL_REQUESTS > (REQUESTS_RATE_LIMIT - 2):
+        take5()
+
 
 def get_user_list(user_token):
+    # Be sure to count each request to the API
+    global TOTAL_REQUESTS
+    global HIPCHAT_API_URL
+
     # Set HTTP header to use user token for auth
     headers = {'Authorization': 'Bearer ' + user_token }
 
@@ -97,8 +113,9 @@ def get_user_list(user_token):
     user_list = {}
 
     # Fetch the user list from the API
-    url = "http://api.hipchat.com/v2/user"
+    url = HIPCHAT_API_URL + "/user"
     r = requests.get(url, headers=headers)
+    TOTAL_REQUESTS += 1
 
     if 'error' in r.json():
         raise ApiError(r.json().get('error'))
@@ -140,22 +157,28 @@ def message_export(user_token, user_id, user_name):
     # flag to track iteration through pages
     LEVEL = 0
 
+    # Check if we need to get file uploads
+    global GET_FILE_UPLOADS
+
     # track the total number of requests made, so we can avoid the rate limit
     global TOTAL_REQUESTS
 
     # Set initial URL with correct user_id
-    url = "http://api.hipchat.com/v2/user/%s/history?date=%s&reverse=false" % (user_id, int(time()))
+    global HIPCHAT_API_URL
+    url = HIPCHAT_API_URL + "/user/%s/history?date=%s&reverse=false" % (user_id, int(time()))
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
+        # Check the REQ count...
+        check_requests_vs_limit()
+
         # fetch the JSON data from the API
         vlog("Fetching URL: %s" % (url))
         r = requests.get(url, headers=headers)
         TOTAL_REQUESTS += 1
 
         # Check the REQ count...
-        if TOTAL_REQUESTS > 95:
-            take5()
+        check_requests_vs_limit()
 
         # TODO - check response code for other errors and report out
         if not r.status_code == requests.codes.ok:
@@ -177,32 +200,32 @@ def message_export(user_token, user_id, user_name):
         with io.open(file_name, 'w', encoding='utf-8') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
 
-        # scan for any file links (aws), fetch them and save to disk
-        vlog("  + looking for file uploads in current message batch...")
-        for item in r.json()['items']:
-            if 'file' in item:
-                vlog("  + fetching file: %s" % (item['file']['url']))
-                r2 = requests.get(item['file']['url'])
-                TOTAL_REQUESTS += 1
+        if GET_FILE_UPLOADS == True:
+            # scan for any file links (aws), fetch them and save to disk
+            vlog("  + looking for file uploads in current message batch...")
+            for item in r.json()['items']:
+                if 'file' in item:
+                    vlog("  + fetching file: %s" % (item['file']['url']))
+                    r2 = requests.get(item['file']['url'])
+                    TOTAL_REQUESTS += 1
 
-                # extract the unique part of the URI to use as a file name
-                fname = '/'.join(urlparse(item['file']['url']).path.split('/')[-3:])
-                fpath = os.path.join(FILE_DIR, fname)
+                    # extract the unique part of the URI to use as a file name
+                    fname = '/'.join(urlparse(item['file']['url']).path.split('/')[-3:])
+                    fpath = os.path.join(FILE_DIR, fname)
 
-                # ensure full dir for the path exists
-                temp_d = os.path.dirname(fpath)
-                if not os.path.exists(temp_d):
-                    os.makedirs(temp_d)
+                    # ensure full dir for the path exists
+                    temp_d = os.path.dirname(fpath)
+                    if not os.path.exists(temp_d):
+                        os.makedirs(temp_d)
 
-                # now fetch the file and write it to disk
-                vlog("  --+ writing to disk: %s" % (fpath))
-                with open(fpath, 'w+b') as fd:
-                    for chunk in r2.iter_content(1024):
-                        fd.write(chunk)
+                    # now fetch the file and write it to disk
+                    vlog("  --+ writing to disk: %s" % (fpath))
+                    with open(fpath, 'w+b') as fd:
+                        for chunk in r2.iter_content(1024):
+                            fd.write(chunk)
 
-                # Check the REQ count...
-                if TOTAL_REQUESTS > 95:
-                    take5()
+                    # Check the REQ count...
+                    check_requests_vs_limit()
 
         # check for more records to process
         if 'next' in r.json()['links']:
@@ -223,6 +246,7 @@ class ApiError(Exception):
 
 def main(argv=None):
     # initialize variables
+    global GET_FILE_UPLOADS
     global VERBOSE
     ACTION = "PROCESS"
     USER_TOKEN = None
@@ -238,7 +262,7 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlux:v", ["help", "list", "user_token=","extract_users="])
+            opts, args = getopt.getopt(argv[1:], "hlmux:v", ["help", "list", "messages", "user_token=","extract_users="])
         except getopt.error, msg:
             raise Usage(msg)
 
@@ -249,6 +273,8 @@ def main(argv=None):
                 sys.exit(0)
             if option in ("-l", "--list"):
                 ACTION = "DISPLAY"
+            if option in ("-m", "--messages"):
+                GET_FILE_UPLOADS = False
             if option == "-v":
                 VERBOSE = True
             if option in ("-u", "--user_token"):
