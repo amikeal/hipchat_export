@@ -7,6 +7,7 @@ Created by Adam Mikeal on 2016-04-13.
 Copyright (c) 2016 Adam Mikeal. All rights reserved.
 """
 
+from __future__ import print_function
 import requests
 import sys
 import io
@@ -68,16 +69,19 @@ HIPCHAT_API_URL = "http://api.hipchat.com/v2"
 REQUESTS_RATE_LIMIT = 100
 TOTAL_REQUESTS = 0
 
+
 def log(msg):
     if msg[0] == "\n":
         msg = msg[1:]
         log(' ')
     logit = '[%s] %s' % (datetime.now(), msg)
-    print logit.encode('utf8')
+    print(logit.encode('utf8'))
+
 
 def vlog(msg):
     if VERBOSE:
         log(msg)
+
 
 def take5():
     global TOTAL_REQUESTS
@@ -89,9 +93,10 @@ def take5():
         sleep(1)
         sys.stdout.write("\r%d sec remaining to resume..." % i)
         sys.stdout.flush()
-    print
+    print('')
     log("Script operation resuming...")
     TOTAL_REQUESTS = 0
+
 
 def check_requests_vs_limit():
     global REQUESTS_RATE_LIMIT
@@ -107,7 +112,7 @@ def get_user_list(user_token):
     global HIPCHAT_API_URL
 
     # Set HTTP header to use user token for auth
-    headers = {'Authorization': 'Bearer ' + user_token }
+    headers = {'Authorization': 'Bearer ' + user_token}
 
     # Return value will be a dictionary
     user_list = {}
@@ -129,22 +134,22 @@ def get_user_list(user_token):
 
 
 def display_userlist(user_list):
-    print "\nThe following users are active and will be queried for 1-to-1 messages:\n"
+    print("\nThe following users are active and will be queried for 1-to-1 messages:\n")
 
     col_width = max([len(val) for val in user_list.values()]) + 2
-    print "Name".ljust(col_width), "ID"
-    print "-" * col_width + "--------"
+    print("Name".ljust(col_width), "ID")
+    print("-" * col_width + "--------")
 
     for u_id, name in user_list.items():
-        print name.ljust(col_width), u_id
+        print(name.ljust(col_width), u_id)
 
 
 def message_export(user_token, user_id, user_name):
     # Set HTTP header to use user token for auth
-    headers = {'Authorization': 'Bearer ' + user_token }
+    headers = {'Authorization': 'Bearer ' + user_token}
 
     # create dirs for current user
-    dir_name =  os.path.join(EXPORT_DIR, user_name)
+    dir_name = os.path.join(EXPORT_DIR, user_name)
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
     dir_name = os.path.join(FILE_DIR, user_id)
@@ -195,12 +200,12 @@ def message_export(user_token, user_id, user_name):
             raise Usage("Could not find messages in API return data... Check your token and try again.")
 
         # write the current JSON dump to file
-        file_name = os.path.join(EXPORT_DIR, user_name, str(LEVEL)+'.txt')
+        file_name = os.path.join(EXPORT_DIR, user_name, str(LEVEL) + '.txt')
         vlog("  + writing JSON to disk: %s" % (file_name))
         with io.open(file_name, 'w', encoding='utf-8') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
 
-        if GET_FILE_UPLOADS == True:
+        if GET_FILE_UPLOADS:
             # scan for any file links (aws), fetch them and save to disk
             vlog("  + looking for file uploads in current message batch...")
             for item in r.json()['items']:
@@ -234,15 +239,17 @@ def message_export(user_token, user_id, user_name):
         else:
             MORE_RECORDS = False
 
-    #end loop
+            # end loop
 
 
 class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+
 class ApiError(Exception):
     pass
+
 
 def main(argv=None):
     # initialize variables
@@ -262,14 +269,15 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlmux:v", ["help", "list", "messages", "user_token=","extract_users="])
+            opts, args = getopt.getopt(argv[1:], "hlmux:v",
+                                       ["help", "list", "messages", "user_token=", "extract_users="])
         except getopt.error, msg:
             raise Usage(msg)
 
         # option processing
         for option, value in opts:
             if option in ("-h", "--help"):
-                print help_message
+                print(help_message)
                 sys.exit(0)
             if option in ("-l", "--list"):
                 ACTION = "DISPLAY"
@@ -290,21 +298,21 @@ def main(argv=None):
         try:
             USER_LIST = get_user_list(USER_TOKEN)
         except ApiError as e:
-            print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+            print("Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message))
             return
 
         # Validate user IDs and ensure they are present in the user list
-        if IDS_TO_EXTRACT is not None:
+        if IDS_TO_EXTRACT:
             for user_id in IDS_TO_EXTRACT:
                 try:
                     int(user_id)
                 except ValueError:
-                    print "Invald user ID: %s." % (user_id)
+                    print("Invald user ID: %s." % (user_id))
                     return 2
 
                 if user_id not in USER_LIST.keys():
-                    print "User ID %s not found in HipChat." % (user_id)
-                    print "Using id rather than name for directory"
+                    print("User ID %s not found in HipChat." % (user_id))
+                    print("Using id rather than name for directory")
                     USER_SUBSET[user_id] = user_id
                 else:
                     USER_SUBSET[user_id] = USER_LIST[user_id]
@@ -315,7 +323,7 @@ def main(argv=None):
             sys.exit(0)
 
         # Iterate through user list and export all 1-to-1 messages to disk
-        if USER_SUBSET is not None:
+        if USER_SUBSET:
             extract = USER_SUBSET.items()
         else:
             extract = USER_LIST.items()
@@ -325,12 +333,12 @@ def main(argv=None):
             try:
                 message_export(USER_TOKEN, user_id, user_name)
             except ApiError as e:
-                print "Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message)
+                print("Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message))
                 return
 
     except Usage, err:
-        print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
-        print >> sys.stderr, "\t for help use --help"
+        print("%s: %s" % (sys.argv[0].split("/")[-1], str(err.msg)), file=sys.stderr)
+        print("\t for help use --help", file=sys.stderr)
         return 2
 
 
