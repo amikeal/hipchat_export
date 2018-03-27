@@ -8,15 +8,21 @@ Copyright (c) 2016 Adam Mikeal. All rights reserved.
 """
 
 from __future__ import print_function
+
 import requests
 import sys
 import io
 import os
 import getopt
 import json
-from datetime import date, datetime
-from urlparse import urlparse
+
+from datetime import datetime
 from time import sleep, time
+
+if sys.version_info[0] == 3:
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
 
 help_message = '''
 A simple script to export 1-to-1 messages from HipChat using the v2 API
@@ -271,7 +277,7 @@ def main(argv=None):
         try:
             opts, args = getopt.getopt(argv[1:], "hlmux:v",
                                        ["help", "list", "messages", "user_token=", "extract_users="])
-        except getopt.error, msg:
+        except getopt.error as msg:
             raise Usage(msg)
 
         # option processing
@@ -336,7 +342,7 @@ def main(argv=None):
                 print("Hipchat API returned HTTP {code}/{type}: {message}".format(**e.message))
                 return
 
-    except Usage, err:
+    except Usage as err:
         print("%s: %s" % (sys.argv[0].split("/")[-1], str(err.msg)), file=sys.stderr)
         print("\t for help use --help", file=sys.stderr)
         return 2
