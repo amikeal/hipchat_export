@@ -275,7 +275,7 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlmux:v",
+            opts, args = getopt.getopt(argv[1:], "hlmu:x:v",
                                        ["help", "list", "messages", "user_token=", "extract_users="])
         except getopt.error as msg:
             raise Usage(msg)
