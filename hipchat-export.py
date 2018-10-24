@@ -237,6 +237,33 @@ def message_export(user_token, user_id, user_name):
 
                     # Check the REQ count...
                     check_requests_vs_limit()
+                if 'authenticated_file' in item:
+                    vlog("  + fetching file: %s" % (item['authenticated_file']['id']))
+                    r2_pre = requests.get(HIPCHAT_API_URL + "/file/" + item['authenticated_file']['id'], headers={'Authorization': 'Bearer ' + user_token })
+                    TOTAL_REQUESTS += 1
+
+                    check_requests_vs_limit()
+
+                    r2 = requests.get(r2_pre.json()['temp_url'])
+                    TOTAL_REQUESTS += 1
+
+                    # extract the unique part of the URI to use as a file name
+                    fname = item['authenticated_file']['id'] + '_' + item['authenticated_file']['name']
+                    fpath = os.path.join(FILE_DIR, fname)
+
+                    # ensure full dir for the path exists
+                    temp_d = os.path.dirname(fpath)
+                    if not os.path.exists(temp_d):
+                        os.makedirs(temp_d)
+
+                    # now fetch the file and write it to disk
+                    vlog("  --+ writing to disk: %s" % (fpath))
+                    with open(fpath, 'w+b') as fd:
+                        for chunk in r2.iter_content(1024):
+                            fd.write(chunk)
+
+                    # Check the REQ count...
+                    check_requests_vs_limit()
 
         # check for more records to process
         if 'next' in r.json()['links']:
