@@ -126,7 +126,7 @@ def get_user_list(user_token):
     start_index = 0
 
     # Fetch the user list from the API
-    while not len(user_list) % 1000:
+    while not len(user_list) % 1000 and start_index < 20000:
         url = HIPCHAT_API_URL + "/user?max-results=1000&reverse=true"
         url += "&date={0}%2B02:00".format(datetime.today().strftime('%Y-%m-%dT%H:%M:%S'))
         url += "&start-index={0}".format(start_index)
@@ -184,10 +184,13 @@ def message_export(user_token, user_id, user_name):
 
     # Set initial URL with correct user_id
     global HIPCHAT_API_URL
-    url = HIPCHAT_API_URL + "/user/%s/history?date=%s&reverse=false&max-results=1000" % (user_id, int(time()))
+    start_index = 0
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
+        url = HIPCHAT_API_URL + "/user/{0}/history?max-results=1000&reverse=true".format(user_id)
+        url += "&date={0}%2B02:00".format(datetime.today().strftime('%Y-%m-%dT%H:%M:%S'))
+        url += "&start-index={0}".format(start_index)
         # Check the REQ count...
         check_requests_vs_limit()
 
@@ -280,8 +283,9 @@ def message_export(user_token, user_id, user_name):
                     check_requests_vs_limit()
 
         # check for more records to process
-        if 'next' in r.json()['links']:
-            url = r.json()['links']['next']
+        num_msgs = len(json_output['items'])
+        if num_msgs > 0 and not num_msgs % 1000 and start_index < 20000:
+            start_index += 1000
             LEVEL += 1
         else:
             MORE_RECORDS = False
