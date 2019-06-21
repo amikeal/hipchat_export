@@ -161,13 +161,14 @@ def message_export(user_token, user_id, user_name):
     # Set HTTP header to use user token for auth
     headers = {'Authorization': 'Bearer ' + user_token}
 
-    # create dirs for current user
-    dir_name = os.path.join(EXPORT_DIR, user_name)
-    if not os.path.isdir(dir_name):
-        os.makedirs(dir_name)
-    dir_name = os.path.join(FILE_DIR, user_id)
-    if not os.path.isdir(dir_name):
-        os.makedirs(dir_name)
+    def create_user_files():
+        # create dirs for current user
+        dir_name = os.path.join(EXPORT_DIR, user_name)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
+        dir_name = os.path.join(FILE_DIR, user_id)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
 
     # flag to control pagination
     MORE_RECORDS = True
@@ -215,8 +216,14 @@ def message_export(user_token, user_id, user_name):
         # write the current JSON dump to file
         file_name = os.path.join(EXPORT_DIR, user_name, str(LEVEL) + '.txt')
         vlog("  + writing JSON to disk: %s" % (file_name))
-        with io.open(file_name, 'w', encoding='utf-8') as f:
-            f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
+        json_output = r.json()
+        if json_output['items']:
+            create_user_files()
+            vlog("Writing {0} messages for user {1}".format(len(json_output['items']), user_name))
+            with io.open(file_name, 'w', encoding='utf-8') as f:
+                f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
+        else:
+            log("Found no chat history for user: {0}".format(user_name))
 
         if GET_FILE_UPLOADS:
             # scan for any file links (aws), fetch them and save to disk
