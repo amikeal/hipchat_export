@@ -123,20 +123,26 @@ def get_user_list(user_token):
 
     # Return value will be a dictionary
     user_list = {}
+    start_index = 0
 
     # Fetch the user list from the API
-    url = HIPCHAT_API_URL + "/user?max-results=1000"
-    r = requests.get(url, headers=headers)
-    TOTAL_REQUESTS += 1
+    while not len(user_list) % 1000:
+        url = HIPCHAT_API_URL + "/user?max-results=1000&reverse=true"
+        url += "&date={0}%2B02:00".format(datetime.today().strftime('%Y-%m-%dT%H:%M:%S'))
+        url += "&start-index={0}".format(start_index)
+        r = requests.get(url, headers=headers)
+        TOTAL_REQUESTS += 1
+        start_index += 1000
 
-    if 'error' in r.json():
-        raise ApiError(r.json().get('error'))
+        if 'error' in r.json():
+            raise ApiError(r.json().get('error'))
 
-    # Iterate through the users and make a dict to return
-    for person in r.json()['items']:
-        user_list[str(person['id'])] = person['name']
+        # Iterate through the users and make a dict to return
+        for person in r.json()['items']:
+            user_list[str(person['id'])] = person['name']
 
     # Return the dict
+    log("Found {0} users to query".format(len(user_list)))
     return user_list
 
 
