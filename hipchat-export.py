@@ -39,6 +39,7 @@ Options:
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
   -x, --extract_users User ID(s) to extract (comma separated list)
+  -e, --end_point     Use a custom endpoint, default is http://api.hipchat.com/v2
 
 Examples:
 
@@ -288,6 +289,7 @@ def main(argv=None):
     # initialize variables
     global GET_FILE_UPLOADS
     global VERBOSE
+    global HIPCHAT_API_URL
     ACTION = "PROCESS"
     USER_TOKEN = None
     IDS_TO_EXTRACT = None
@@ -302,8 +304,8 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlmu:x:v",
-                                       ["help", "list", "messages", "user_token=", "extract_users="])
+            opts, args = getopt.getopt(argv[1:], "hlmu:x:ve:",
+                                       ["help", "list", "messages", "user_token=", "extract_users=", "end_point="])
         except getopt.error as msg:
             raise Usage(msg)
 
@@ -322,6 +324,8 @@ def main(argv=None):
                 USER_TOKEN = value
             if option in ("-x", "--extract_users"):
                 IDS_TO_EXTRACT = value.split(',')
+            if option in ("-e", "--end_point"):
+                HIPCHAT_API_URL = value
 
         # ensure that the token passed is a valid token length (real check happens later)
         if not USER_TOKEN or not len(USER_TOKEN) == 40:
