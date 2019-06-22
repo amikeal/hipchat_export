@@ -39,6 +39,7 @@ Options:
                         *** Generate this token online at
                         https://coa.hipchat.com/account/api ***
   -x, --extract_users User ID(s) to extract (comma separated list)
+  -e, --end_point     Use a custom endpoint, default is http://api.hipchat.com/v2
 
 Examples:
 
@@ -122,20 +123,26 @@ def get_user_list(user_token):
 
     # Return value will be a dictionary
     user_list = {}
+    start_index = 0
 
     # Fetch the user list from the API
-    url = HIPCHAT_API_URL + "/user?max-results=1000"
-    r = requests.get(url, headers=headers)
-    TOTAL_REQUESTS += 1
+    while not len(user_list) % 1000 and start_index < 20000:
+        url = HIPCHAT_API_URL + "/user?max-results=1000&reverse=true"
+        url += "&date={0}%2B02:00".format(datetime.today().strftime('%Y-%m-%dT%H:%M:%S'))
+        url += "&start-index={0}".format(start_index)
+        r = requests.get(url, headers=headers)
+        TOTAL_REQUESTS += 1
+        start_index += 1000
 
-    if 'error' in r.json():
-        raise ApiError(r.json().get('error'))
+        if 'error' in r.json():
+            raise ApiError(r.json().get('error'))
 
-    # Iterate through the users and make a dict to return
-    for person in r.json()['items']:
-        user_list[str(person['id'])] = person['name']
+        # Iterate through the users and make a dict to return
+        for person in r.json()['items']:
+            user_list[str(person['id'])] = person['name']
 
     # Return the dict
+    log("Found {0} users to query".format(len(user_list)))
     return user_list
 
 
@@ -154,13 +161,14 @@ def message_export(user_token, user_id, user_name):
     # Set HTTP header to use user token for auth
     headers = {'Authorization': 'Bearer ' + user_token}
 
-    # create dirs for current user
-    dir_name = os.path.join(EXPORT_DIR, user_name)
-    if not os.path.isdir(dir_name):
-        os.makedirs(dir_name)
-    dir_name = os.path.join(FILE_DIR, user_id)
-    if not os.path.isdir(dir_name):
-        os.makedirs(dir_name)
+    def create_user_files():
+        # create dirs for current user
+        dir_name = os.path.join(EXPORT_DIR, user_name)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
+        dir_name = os.path.join(FILE_DIR, user_id)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
 
     # flag to control pagination
     MORE_RECORDS = True
@@ -176,10 +184,13 @@ def message_export(user_token, user_id, user_name):
 
     # Set initial URL with correct user_id
     global HIPCHAT_API_URL
-    url = HIPCHAT_API_URL + "/user/%s/history?date=%s&reverse=false&max-results=1000" % (user_id, int(time()))
+    start_index = 0
 
     # main loop to fetch and save messages
     while MORE_RECORDS:
+        url = HIPCHAT_API_URL + "/user/{0}/history?max-results=1000&reverse=true".format(user_id)
+        url += "&date={0}%2B02:00".format(datetime.today().strftime('%Y-%m-%dT%H:%M:%S'))
+        url += "&start-index={0}".format(start_index)
         # Check the REQ count...
         check_requests_vs_limit()
 
@@ -208,8 +219,14 @@ def message_export(user_token, user_id, user_name):
         # write the current JSON dump to file
         file_name = os.path.join(EXPORT_DIR, user_name, str(LEVEL) + '.txt')
         vlog("  + writing JSON to disk: %s" % (file_name))
-        with io.open(file_name, 'w', encoding='utf-8') as f:
-            f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
+        json_output = r.json()
+        if json_output['items']:
+            create_user_files()
+            vlog("Writing {0} messages for user {1}".format(len(json_output['items']), user_name))
+            with io.open(file_name, 'w', encoding='utf-8') as f:
+                f.write(json.dumps(r.json(), sort_keys=True, indent=4, ensure_ascii=False))
+        else:
+            log("Found no chat history for user: {0}".format(user_name))
 
         if GET_FILE_UPLOADS:
             # scan for any file links (aws), fetch them and save to disk
@@ -266,8 +283,9 @@ def message_export(user_token, user_id, user_name):
                     check_requests_vs_limit()
 
         # check for more records to process
-        if 'next' in r.json()['links']:
-            url = r.json()['links']['next']
+        num_msgs = len(json_output['items'])
+        if num_msgs > 0 and not num_msgs % 1000 and start_index < 20000:
+            start_index += 1000
             LEVEL += 1
         else:
             MORE_RECORDS = False
@@ -288,6 +306,7 @@ def main(argv=None):
     # initialize variables
     global GET_FILE_UPLOADS
     global VERBOSE
+    global HIPCHAT_API_URL
     ACTION = "PROCESS"
     USER_TOKEN = None
     IDS_TO_EXTRACT = None
@@ -302,8 +321,8 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hlmu:x:v",
-                                       ["help", "list", "messages", "user_token=", "extract_users="])
+            opts, args = getopt.getopt(argv[1:], "hlmu:x:ve:",
+                                       ["help", "list", "messages", "user_token=", "extract_users=", "end_point="])
         except getopt.error as msg:
             raise Usage(msg)
 
@@ -322,6 +341,8 @@ def main(argv=None):
                 USER_TOKEN = value
             if option in ("-x", "--extract_users"):
                 IDS_TO_EXTRACT = value.split(',')
+            if option in ("-e", "--end_point"):
+                HIPCHAT_API_URL = value
 
         # ensure that the token passed is a valid token length (real check happens later)
         if not USER_TOKEN or not len(USER_TOKEN) == 40:
